@@ -1,0 +1,14 @@
+FROM golang:1.24-alpine AS build
+
+WORKDIR /app
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . ./
+RUN CGO_ENABLED=0 GOOS=linux go build -o /out/nexo ./cmd/server
+
+FROM alpine:3.21
+RUN addgroup -S nexo && adduser -S nexo -G nexo
+COPY --from=build /out/nexo /usr/local/bin/nexo
+USER nexo
+EXPOSE 8080
+ENTRYPOINT ["/usr/local/bin/nexo"]
