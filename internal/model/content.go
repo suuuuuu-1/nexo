@@ -45,24 +45,23 @@ type Content struct {
 
 // Episode 是内容的可访问单元，资源本身通过对象存储 key 关联。
 type Episode struct {
-	ID              string        `json:"id"`
-	ContentID       string        `json:"content_id"`
-	ContentTitle    string        `json:"content_title,omitempty"`
-	ContentStatus   ContentStatus `json:"content_status,omitempty"`
-	EpisodeNo       int           `json:"episode_no"`
-	Title           string        `json:"title"`
-	Summary         string        `json:"summary"`
-	AccessType      AccessType    `json:"access_type"`
-	PriceCents      int64         `json:"price_cents"`
-	ResourceType    string        `json:"resource_type"`
-	StorageProvider string        `json:"storage_provider"`
-	BucketName      *string       `json:"bucket_name,omitempty"`
-	ObjectKey       *string       `json:"object_key,omitempty"`
-	Status          ContentStatus `json:"status"`
-	CreatedBy       string        `json:"created_by"`
-	UpdatedBy       string        `json:"updated_by"`
-	CreatedAt       time.Time     `json:"created_at"`
-	UpdatedAt       time.Time     `json:"updated_at"`
+	ID            string        `json:"id"`
+	ContentID     string        `json:"content_id"`
+	ContentTitle  string        `json:"content_title,omitempty"`
+	ContentStatus ContentStatus `json:"content_status,omitempty"`
+	EpisodeNo     int           `json:"episode_no"`
+	Title         string        `json:"title"`
+	Summary       string        `json:"summary"`
+	AccessType    AccessType    `json:"access_type"`
+	PriceCents    int64         `json:"price_cents"`
+	ResourceType  string        `json:"resource_type"`
+	BucketName    *string       `json:"bucket_name,omitempty"`
+	ObjectKey     *string       `json:"object_key,omitempty"`
+	Status        ContentStatus `json:"status"`
+	CreatedBy     string        `json:"created_by"`
+	UpdatedBy     string        `json:"updated_by"`
+	CreatedAt     time.Time     `json:"created_at"`
+	UpdatedAt     time.Time     `json:"updated_at"`
 }
 
 // ContentInput 是内容创建和更新时使用的字段集合，不包含由服务端维护的状态字段。
@@ -76,13 +75,12 @@ type ContentInput struct {
 
 // EpisodeInput 是 Episode 创建和更新时使用的字段集合。
 type EpisodeInput struct {
-	EpisodeNo       int
-	Title           string
-	Summary         string
-	AccessType      AccessType
-	PriceCents      int64
-	ResourceType    string
-	StorageProvider string
-	BucketName      *string
-	ObjectKey       *string
+	EpisodeNo    int
+	Title        string
+	Summary      string
+	AccessType   AccessType
+	PriceCents   int64
+	ResourceType string
+	BucketName   *string
+	ObjectKey    *string
 }

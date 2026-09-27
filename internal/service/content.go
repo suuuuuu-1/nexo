@@ -184,16 +184,13 @@ func normalizeContentInput(input model.ContentInput) model.ContentInput {
 	return input
 }
 
-// normalizeEpisodeInput 填充 Episode 的访问类型、资源类型和存储提供方默认值。
+// normalizeEpisodeInput 填充 Episode 的访问类型和资源类型默认值。
 func normalizeEpisodeInput(input model.EpisodeInput) model.EpisodeInput {
 	if input.AccessType == "" {
 		input.AccessType = model.AccessFree
 	}
 	if input.ResourceType == "" {
 		input.ResourceType = "VIDEO"
-	}
-	if input.StorageProvider == "" {
-		input.StorageProvider = "R2"
 	}
 	return input
 }

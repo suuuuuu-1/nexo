@@ -10,7 +10,7 @@ import (
 	"github.com/suuuuu/nexo/internal/storage"
 )
 
-// Router holds the HTTP layer's business dependencies; handlers delegate use cases to services.
+// Router 保存 HTTP 层的业务依赖；各处理函数将具体用例交给对应的 Service。
 type Router struct {
 	config      config.Config
 	userService *service.UserService
@@ -19,11 +19,11 @@ type Router struct {
 	wallet      *service.WalletService
 	entitlement *service.EntitlementService
 	progress    *service.ProgressService
-	storage     storage.ObjectStorage
+	storage     *storage.R2Storage
 	readiness   ReadinessChecker
 }
 
-// NewRouter creates the Gin engine and registers public, authenticated, admin, and operator routes.
+// NewRouter 创建 Gin 引擎，并注册公开、认证、管理员和运营人员路由。
 func NewRouter(
 	cfg config.Config,
 	userService *service.UserService,
@@ -32,7 +32,7 @@ func NewRouter(
 	walletService *service.WalletService,
 	entitlementService *service.EntitlementService,
 	progressService *service.ProgressService,
-	objectStorage storage.ObjectStorage,
+	objectStorage *storage.R2Storage,
 	readiness ReadinessChecker,
 ) *gin.Engine {
 	api := &Router{
@@ -58,19 +58,19 @@ func NewRouter(
 	router.GET("/health", api.health)
 	router.GET("/ready", api.ready)
 
-	// Authentication endpoints are public.
+	// 注册和登录接口无需登录。
 	authRoutes := router.Group("/api/auth")
 	authRoutes.POST("/register", api.register)
 	authRoutes.POST("/login", api.login)
 
-	// Public content and plans; the mock payment callback is a public v1 test endpoint.
+	// 内容和会员计划浏览接口公开；模拟支付回调仅用于 v1 演示。
 	router.GET("/api/contents", api.listPublishedContents)
 	router.GET("/api/contents/:id", api.getPublishedContent)
 	router.GET("/api/episodes/:id", api.getPublishedEpisode)
 	router.GET("/api/plans", api.listPlans)
 	router.POST("/api/payments/mock/callback", api.mockPaymentCallback)
 
-	// All following endpoints require a valid JWT.
+	// 以下接口均要求请求携带有效 JWT。
 	protected := router.Group("/api")
 	protected.Use(AuthRequired(userService))
 	protected.GET("/me", api.me)
@@ -85,14 +85,14 @@ func NewRouter(
 	protected.GET("/orders/:id", api.getOrder)
 	protected.POST("/orders/:id/pay", api.payOrder)
 
-	// ADMIN-only user management endpoints.
+	// 仅 ADMIN 可访问用户管理接口。
 	admin := protected.Group("/admin")
 	admin.Use(RequireRoles(model.RoleAdmin))
 	admin.GET("/users", api.listUsers)
 	admin.PATCH("/users/:id/role", api.updateUserRole)
 	admin.PATCH("/users/:id/status", api.updateUserStatus)
 
-	// OPERATOR and ADMIN share content management endpoints.
+	// OPERATOR 和 ADMIN 共用内容运营接口。
 	operator := protected.Group("/operator")
 	operator.Use(RequireRoles(model.RoleOperator, model.RoleAdmin))
 	operator.GET("/contents", api.listOperatorContents)

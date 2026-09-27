@@ -9,7 +9,7 @@ import (
 )
 
 func TestR2PresignPutReturnsSignedURL(t *testing.T) {
-	store, err := New("r2", "https://account.r2.cloudflarestorage.com", "test-access-key", "test-secret-key")
+	store, err := NewR2("https://account.r2.cloudflarestorage.com", "test-access-key", "test-secret-key")
 	if err != nil {
 		t.Fatalf("New() error = %v", err)
 	}
@@ -30,5 +30,17 @@ func TestR2PresignPutReturnsSignedURL(t *testing.T) {
 	}
 	if parsed.Query().Get("X-Amz-Expires") != "900" {
 		t.Fatalf("URL expiry = %q, want 900 seconds", parsed.Query().Get("X-Amz-Expires"))
+	}
+}
+
+func TestNewR2RequiresCredentials(t *testing.T) {
+	if _, err := NewR2("", "", ""); err == nil {
+		t.Fatal("NewR2() should reject missing configuration")
+	}
+}
+
+func TestNewR2RequiresHTTPSURL(t *testing.T) {
+	if _, err := NewR2("http://account.r2.cloudflarestorage.com", "test-access-key", "test-secret-key"); err == nil {
+		t.Fatal("NewR2() should reject a non-HTTPS endpoint")
 	}
 }

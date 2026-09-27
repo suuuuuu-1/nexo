@@ -13,11 +13,11 @@ var ErrInvalidFulfillmentState = errors.New("order is not ready for fulfillment"
 
 type EntitlementService struct {
 	repo *repository.EntitlementRepository
-	tx   repository.EntitlementTransactionRunner
+	tx   repository.TransactionRunner
 }
 
 // NewEntitlementService 创建权益业务服务。
-func NewEntitlementService(repo *repository.EntitlementRepository, tx repository.EntitlementTransactionRunner) *EntitlementService {
+func NewEntitlementService(repo *repository.EntitlementRepository, tx repository.TransactionRunner) *EntitlementService {
 	return &EntitlementService{repo: repo, tx: tx}
 }
 
@@ -54,7 +54,7 @@ func (s *EntitlementService) CheckEpisodeAccess(ctx context.Context, userID, epi
 
 // FulfillOrder 推进支付订单状态机，并在同一事务中创建对应的订阅和权益。
 func (s *EntitlementService) FulfillOrder(ctx context.Context, orderID string) error {
-	return s.tx.WithinEntitlementTx(ctx, func(tx repository.EntitlementTx) error {
+	return s.tx.WithinTx(ctx, func(tx repository.Transaction) error {
 		order, err := tx.LockOrderForFulfillment(ctx, orderID)
 		if err != nil {
 			return err

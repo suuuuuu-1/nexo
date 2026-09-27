@@ -15,7 +15,7 @@ Nexo 是一个面向数字内容订阅与权益业务的 Go + React 全栈项目
 - Outbox + RabbitMQ 异步权益履约和重复消费幂等
 - Entitlement 统一访问权限校验
 - Redis 内容详情缓存
-- R2 presigned URL 播放地址；未配置 R2 时使用 Mock Storage
+- Cloudflare R2 presigned URL 上传与播放；启动 API 必须配置 R2
 - WatchProgress 观看进度和乐观锁
 - React 用户端和 OPERATOR 内容运营台
 - Docker Compose + PostgreSQL + Redis + RabbitMQ + pgAdmin + Nginx
@@ -53,15 +53,16 @@ ADMIN_EMAIL=admin@nexo.local ADMIN_PASSWORD=change-me-123 go run ./cmd/seed-admi
 
 公开注册始终创建 `USER`。创建 `OPERATOR` 可以先用 ADMIN 登录后调用用户管理接口，或者直接在 pgAdmin 中执行更新。
 
-默认情况下 `STORAGE_PROVIDER=mock`，播放接口会返回 `mock://` 地址。要使用 Cloudflare R2，设置：
+v1 固定使用 Cloudflare R2，不提供模拟对象存储。启动 Docker Compose 前，在 `.env` 中填写：
 
 ```text
-STORAGE_PROVIDER=r2
 R2_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com
 R2_ACCESS_KEY=<access-key>
 R2_SECRET_KEY=<secret-key>
 R2_BUCKET=nexo-media
 ```
+
+`.env.example` 中的 R2 配置默认为空，必须填写 Cloudflare 控制台提供的 Endpoint 和密钥；Docker Compose 会拒绝空配置，API 也会在启动时校验 R2 HTTPS Endpoint 和密钥。Episode 只保存 bucket 与 object key，存储服务固定为 R2。
 
 视频对象只在数据库中保存 `object_key`，播放时由 API 做权益校验并生成短期 presigned URL。
 
@@ -104,7 +105,7 @@ internal/handler/      router.go 负责路由组装；user/content/order/wallet/
 internal/service/      用例编排与业务校验
 internal/repository/   PostgreSQL 查询及事务操作
 internal/model/        跨层共享的业务实体和数据类型
-                       TransactionManager 提供事务内数据操作接口
+                       TransactionManager 统一管理订单、钱包和权益事务
 internal/health/       有超时边界的依赖就绪探测
 internal/worker/       Outbox 发布与 MQ 消费
 internal/{auth,cache,config,database,mq,storage}/
@@ -136,3 +137,8 @@ npm run dev
 ```
 
 开发前需要先启动 PostgreSQL，并设置 `DATABASE_URL`。
+
+## 待办清单
+
+- [x] 统一 Go 源码说明注释的语言：将 `internal/handler/router.go`、`internal/handler/health.go`、`internal/health/checker.go`、`internal/cache/redis.go` 和 `internal/mq/rabbitmq.go` 中的英文说明注释改为准确、自然的中文；保留 Go 编译指令等非说明性注释。
+- [x] 精简 v1 基础设施抽象：订单、钱包和权益共用 `TransactionRunner` 与 `Transaction`，删除按业务重复定义的六个事务接口，同时保留内存测试替身；对象存储固定为 Cloudflare R2，移除运行时 `MockStorage`、存储切换配置及 Episode 的 provider 字段，缺少 R2 配置时 API 启动失败。事务、行锁、真实 R2 上传/播放和订单履约流程保持不变；模拟支付回调仍保留。

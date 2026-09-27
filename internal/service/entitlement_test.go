@@ -12,11 +12,12 @@ type fakeEntitlementRunner struct {
 	tx *fakeEntitlementTx
 }
 
-func (r *fakeEntitlementRunner) WithinEntitlementTx(ctx context.Context, fn func(repository.EntitlementTx) error) error {
+func (r *fakeEntitlementRunner) WithinTx(ctx context.Context, fn func(repository.Transaction) error) error {
 	return fn(r.tx)
 }
 
 type fakeEntitlementTx struct {
+	repository.Transaction
 	order               model.Order
 	createdSubscription int
 	createdEntitlement  int

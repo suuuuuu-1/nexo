@@ -28,6 +28,12 @@ func main() {
 	// 这里不承载具体业务逻辑，只负责按照依赖顺序完成：
 	// 配置加载 → 基础设施初始化 → 数据访问层组装 → 后台 Worker 启动 → HTTP 服务启动。
 	cfg := config.Load()
+	// v1 使用 Cloudflare R2；缺少或填错配置时尽早失败，避免服务返回不可用的模拟地址。
+	// 数据库只保存对象 key，访问时由 R2 客户端生成短期预签名地址。
+	objectStorage, err := storage.NewR2(cfg.R2Endpoint, cfg.R2AccessKey, cfg.R2SecretKey)
+	if err != nil {
+		log.Fatalf("configure R2 object storage: %v", err)
+	}
 
 	// 启动阶段的依赖连接和数据库迁移不能无限等待。
 	// 这个 context 只用于启动过程，不与服务运行期间的请求 context 混用。
@@ -59,13 +65,6 @@ func main() {
 		log.Fatalf("connect rabbitmq: %v", err)
 	}
 	defer broker.Close()
-
-	// 通过接口屏蔽对象存储实现：开发环境使用 Mock Storage，配置 R2 后切换到 Cloudflare R2。
-	// 数据库只保存对象 key，访问时再由 Storage 实现生成临时地址。
-	objectStorage, err := storage.New(cfg.StorageProvider, cfg.R2Endpoint, cfg.R2AccessKey, cfg.R2SecretKey)
-	if err != nil {
-		log.Fatalf("configure object storage: %v", err)
-	}
 
 	// 集中创建 Repository 和 Service；底层连接仍由 main 初始化并传入。
 	deps := buildDependencies(db, redisClient, cfg)

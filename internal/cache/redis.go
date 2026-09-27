@@ -32,7 +32,7 @@ func (c *Client) Close() error {
 	return c.redis.Close()
 }
 
-// Ping verifies Redis is reachable within the caller's context deadline.
+// Ping 在调用方的 context 时限内检查 Redis 是否可用。
 func (c *Client) Ping(ctx context.Context) error {
 	return c.redis.Ping(ctx).Err()
 }

@@ -99,23 +99,23 @@ func (r *ContentRepository) PublishContent(ctx context.Context, id, actorID stri
 	`, id, status, actorID)
 }
 
-// CreateEpisode 创建 Episode，并保存对象存储的 provider、bucket 和 object key 元数据。
+// CreateEpisode 创建 Episode，并保存对象存储的 bucket 和 object key 元数据。
 func (r *ContentRepository) CreateEpisode(ctx context.Context, actorID, contentID string, input model.EpisodeInput) (*model.Episode, error) {
 	return r.findEpisode(ctx, `
-		INSERT INTO episodes (content_id, episode_no, title, summary, access_type, price_cents, resource_type, storage_provider, bucket_name, object_key, created_by, updated_by)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $11)
-		RETURNING id, content_id, episode_no, title, summary, access_type, price_cents, resource_type, storage_provider, bucket_name, object_key, status, created_by, updated_by, created_at, updated_at
-	`, contentID, input.EpisodeNo, input.Title, input.Summary, input.AccessType, input.PriceCents, input.ResourceType, input.StorageProvider, input.BucketName, input.ObjectKey, actorID)
+		INSERT INTO episodes (content_id, episode_no, title, summary, access_type, price_cents, resource_type, bucket_name, object_key, created_by, updated_by)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $10)
+		RETURNING id, content_id, episode_no, title, summary, access_type, price_cents, resource_type, bucket_name, object_key, status, created_by, updated_by, created_at, updated_at
+	`, contentID, input.EpisodeNo, input.Title, input.Summary, input.AccessType, input.PriceCents, input.ResourceType, input.BucketName, input.ObjectKey, actorID)
 }
 
 // UpdateEpisode 更新 Episode 的展示字段、访问规则和资源定位信息。
 func (r *ContentRepository) UpdateEpisode(ctx context.Context, id, actorID string, input model.EpisodeInput) (*model.Episode, error) {
 	return r.findEpisode(ctx, `
 		UPDATE episodes
-		SET episode_no = $2, title = $3, summary = $4, access_type = $5, price_cents = $6, resource_type = $7, storage_provider = $8, bucket_name = $9, object_key = $10, updated_by = $11, updated_at = NOW()
+		SET episode_no = $2, title = $3, summary = $4, access_type = $5, price_cents = $6, resource_type = $7, bucket_name = $8, object_key = $9, updated_by = $10, updated_at = NOW()
 		WHERE id = $1
-		RETURNING id, content_id, episode_no, title, summary, access_type, price_cents, resource_type, storage_provider, bucket_name, object_key, status, created_by, updated_by, created_at, updated_at
-	`, id, input.EpisodeNo, input.Title, input.Summary, input.AccessType, input.PriceCents, input.ResourceType, input.StorageProvider, input.BucketName, input.ObjectKey, actorID)
+		RETURNING id, content_id, episode_no, title, summary, access_type, price_cents, resource_type, bucket_name, object_key, status, created_by, updated_by, created_at, updated_at
+	`, id, input.EpisodeNo, input.Title, input.Summary, input.AccessType, input.PriceCents, input.ResourceType, input.BucketName, input.ObjectKey, actorID)
 }
 
 // PublishEpisode 实际承担 Episode 发布和下线两种状态变更。
@@ -123,14 +123,14 @@ func (r *ContentRepository) PublishEpisode(ctx context.Context, id, actorID stri
 	return r.findEpisode(ctx, `
 		UPDATE episodes SET status = $2, updated_by = $3, updated_at = NOW()
 		WHERE id = $1
-		RETURNING id, content_id, episode_no, title, summary, access_type, price_cents, resource_type, storage_provider, bucket_name, object_key, status, created_by, updated_by, created_at, updated_at
+		RETURNING id, content_id, episode_no, title, summary, access_type, price_cents, resource_type, bucket_name, object_key, status, created_by, updated_by, created_at, updated_at
 	`, id, status, actorID)
 }
 
 // GetEpisode 查询单个 Episode；用户侧调用时必须开启 publishedOnly。
 func (r *ContentRepository) GetEpisode(ctx context.Context, id string, publishedOnly bool) (*model.Episode, error) {
 	query := `
-		SELECT e.id, e.content_id, c.title, c.status, e.episode_no, e.title, e.summary, e.access_type, e.price_cents, e.resource_type, e.storage_provider, e.bucket_name, e.object_key, e.status, e.created_by, e.updated_by, e.created_at, e.updated_at
+		SELECT e.id, e.content_id, c.title, c.status, e.episode_no, e.title, e.summary, e.access_type, e.price_cents, e.resource_type, e.bucket_name, e.object_key, e.status, e.created_by, e.updated_by, e.created_at, e.updated_at
 		FROM episodes e JOIN contents c ON c.id = e.content_id WHERE e.id = $1`
 	if publishedOnly {
 		query += ` AND c.status = 'PUBLISHED' AND e.status = 'PUBLISHED'`
@@ -141,7 +141,7 @@ func (r *ContentRepository) GetEpisode(ctx context.Context, id string, published
 // ListEpisodes 按 EpisodeNo 顺序返回内容下的 Episode。
 func (r *ContentRepository) ListEpisodes(ctx context.Context, contentID string, publishedOnly bool) ([]model.Episode, error) {
 	query := `
-		SELECT e.id, e.content_id, c.title, c.status, e.episode_no, e.title, e.summary, e.access_type, e.price_cents, e.resource_type, e.storage_provider, e.bucket_name, e.object_key, e.status, e.created_by, e.updated_by, e.created_at, e.updated_at
+		SELECT e.id, e.content_id, c.title, c.status, e.episode_no, e.title, e.summary, e.access_type, e.price_cents, e.resource_type, e.bucket_name, e.object_key, e.status, e.created_by, e.updated_by, e.created_at, e.updated_at
 		FROM episodes e JOIN contents c ON c.id = e.content_id WHERE e.content_id = $1`
 	if publishedOnly {
 		query += ` AND c.status = 'PUBLISHED' AND e.status = 'PUBLISHED'`
@@ -191,13 +191,13 @@ func (r *ContentRepository) findEpisode(ctx context.Context, query string, args 
 	if withContent {
 		err = r.db.QueryRow(ctx, strings.TrimSpace(query), args...).Scan(
 			&item.ID, &item.ContentID, &item.ContentTitle, &item.ContentStatus, &item.EpisodeNo, &item.Title, &item.Summary,
-			&item.AccessType, &item.PriceCents, &item.ResourceType, &item.StorageProvider, &item.BucketName, &item.ObjectKey,
+			&item.AccessType, &item.PriceCents, &item.ResourceType, &item.BucketName, &item.ObjectKey,
 			&item.Status, &item.CreatedBy, &item.UpdatedBy, &item.CreatedAt, &item.UpdatedAt,
 		)
 	} else {
 		err = r.db.QueryRow(ctx, strings.TrimSpace(query), args...).Scan(
 			&item.ID, &item.ContentID, &item.EpisodeNo, &item.Title, &item.Summary, &item.AccessType, &item.PriceCents,
-			&item.ResourceType, &item.StorageProvider, &item.BucketName, &item.ObjectKey, &item.Status, &item.CreatedBy,
+			&item.ResourceType, &item.BucketName, &item.ObjectKey, &item.Status, &item.CreatedBy,
 			&item.UpdatedBy, &item.CreatedAt, &item.UpdatedAt,
 		)
 	}
@@ -228,9 +228,9 @@ func scanEpisode(rows pgx.Rows, withContent bool) (*model.Episode, error) {
 	var item model.Episode
 	var err error
 	if withContent {
-		err = rows.Scan(&item.ID, &item.ContentID, &item.ContentTitle, &item.ContentStatus, &item.EpisodeNo, &item.Title, &item.Summary, &item.AccessType, &item.PriceCents, &item.ResourceType, &item.StorageProvider, &item.BucketName, &item.ObjectKey, &item.Status, &item.CreatedBy, &item.UpdatedBy, &item.CreatedAt, &item.UpdatedAt)
+		err = rows.Scan(&item.ID, &item.ContentID, &item.ContentTitle, &item.ContentStatus, &item.EpisodeNo, &item.Title, &item.Summary, &item.AccessType, &item.PriceCents, &item.ResourceType, &item.BucketName, &item.ObjectKey, &item.Status, &item.CreatedBy, &item.UpdatedBy, &item.CreatedAt, &item.UpdatedAt)
 	} else {
-		err = rows.Scan(&item.ID, &item.ContentID, &item.EpisodeNo, &item.Title, &item.Summary, &item.AccessType, &item.PriceCents, &item.ResourceType, &item.StorageProvider, &item.BucketName, &item.ObjectKey, &item.Status, &item.CreatedBy, &item.UpdatedBy, &item.CreatedAt, &item.UpdatedAt)
+		err = rows.Scan(&item.ID, &item.ContentID, &item.EpisodeNo, &item.Title, &item.Summary, &item.AccessType, &item.PriceCents, &item.ResourceType, &item.BucketName, &item.ObjectKey, &item.Status, &item.CreatedBy, &item.UpdatedBy, &item.CreatedAt, &item.UpdatedAt)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("scan episode: %w", err)

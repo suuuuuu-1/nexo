@@ -16,12 +16,12 @@ type ReadinessChecker interface {
 	Check(context.Context) health.Report
 }
 
-// health reports process liveness without depending on external services.
+// health 返回进程存活状态，不检查外部依赖。
 func (r *Router) health(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"status": "ok"})
 }
 
-// ready checks required runtime dependencies with one bounded request deadline.
+// ready 在单个请求超时时间内检查服务运行所需的依赖。
 func (r *Router) ready(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), readinessTimeout)
 	defer cancel()

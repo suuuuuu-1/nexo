@@ -21,13 +21,13 @@ var (
 	ErrAlreadyOwned      = errors.New("user already owns this entitlement")
 )
 
-// OrderService 编排订单用例；事务接口负责原子提交，Repository 提供普通查询。
+// OrderService 编排订单用例；事务入口负责原子提交，Repository 提供普通查询。
 type OrderService struct {
 	repo orderReader
-	tx   repository.OrderTransactionRunner
+	tx   repository.TransactionRunner
 }
 
-// orderReader 限定 Service 需要的普通查询，事务写操作仍通过 OrderTransactionRunner 执行。
+// orderReader 限定 Service 需要的普通查询，事务写操作仍通过 TransactionRunner 执行。
 type orderReader interface {
 	ListPlans(ctx context.Context) ([]model.MembershipPlan, error)
 	GetOrder(ctx context.Context, userID, orderID string) (*model.Order, error)
@@ -35,7 +35,7 @@ type orderReader interface {
 }
 
 // NewOrderService 创建订单业务服务。
-func NewOrderService(repo orderReader, tx repository.OrderTransactionRunner) *OrderService {
+func NewOrderService(repo orderReader, tx repository.TransactionRunner) *OrderService {
 	return &OrderService{repo: repo, tx: tx}
 }
 
@@ -58,7 +58,7 @@ func (s *OrderService) CreateOrder(ctx context.Context, userID string, input mod
 
 	var existing *model.Order
 	var createdID string
-	err := s.tx.WithinOrderTx(ctx, func(tx repository.OrderTx) error {
+	err := s.tx.WithinTx(ctx, func(tx repository.Transaction) error {
 		if input.IdempotencyKey != "" {
 			found, err := tx.FindOrderByIdempotencyKey(ctx, userID, input.IdempotencyKey)
 			if err == nil {
@@ -144,7 +144,7 @@ func (s *OrderService) ListOrders(ctx context.Context, userID string, limit, off
 
 // PayWithWallet 编排订单状态校验、钱包扣款和支付事件写入。
 func (s *OrderService) PayWithWallet(ctx context.Context, userID, orderID string) (*model.Order, error) {
-	err := s.tx.WithinOrderTx(ctx, func(tx repository.OrderTx) error {
+	err := s.tx.WithinTx(ctx, func(tx repository.Transaction) error {
 		order, err := tx.LockOrderForPayment(ctx, userID, orderID)
 		if err != nil {
 			return err
@@ -184,7 +184,7 @@ func (s *OrderService) PayWithWallet(ctx context.Context, userID, orderID string
 // MockCallback 按订单状态机处理模拟支付平台回调；重复成功回调不会再次写支付事件。
 func (s *OrderService) MockCallback(ctx context.Context, orderNo, providerTxnID string) (*model.Order, error) {
 	var userID, orderID string
-	err := s.tx.WithinOrderTx(ctx, func(tx repository.OrderTx) error {
+	err := s.tx.WithinTx(ctx, func(tx repository.Transaction) error {
 		order, err := tx.LockOrderByNumber(ctx, orderNo)
 		if err != nil {
 			return err

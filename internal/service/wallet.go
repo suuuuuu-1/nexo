@@ -15,11 +15,11 @@ var (
 
 type WalletService struct {
 	repo *repository.WalletRepository
-	tx   repository.WalletTransactionRunner
+	tx   repository.TransactionRunner
 }
 
 // NewWalletService 创建钱包业务服务。
-func NewWalletService(repo *repository.WalletRepository, tx repository.WalletTransactionRunner) *WalletService {
+func NewWalletService(repo *repository.WalletRepository, tx repository.TransactionRunner) *WalletService {
 	return &WalletService{repo: repo, tx: tx}
 }
 
@@ -33,7 +33,7 @@ func (s *WalletService) Recharge(ctx context.Context, userID string, amount int6
 	if amount <= 0 || idempotencyKey == "" {
 		return nil, ErrInvalidWalletAmount
 	}
-	err := s.tx.WithinWalletTx(ctx, func(tx repository.WalletTx) error {
+	err := s.tx.WithinTx(ctx, func(tx repository.Transaction) error {
 		wallet, err := tx.LockWalletForUpdate(ctx, userID)
 		if err != nil {
 			return err

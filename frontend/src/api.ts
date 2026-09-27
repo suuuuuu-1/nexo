@@ -24,7 +24,6 @@ export type Episode = {
   access_type: AccessType;
   price_cents: number;
   resource_type: string;
-  storage_provider: string;
   object_key?: string | null;
   status: ContentStatus;
 };
@@ -231,7 +230,7 @@ export function publishOperatorContent(id: string) {
 export function createOperatorEpisode(contentID: string, input: { episode_no: number; title: string; summary: string; access_type: AccessType; price_cents: number; object_key: string }) {
   return request<Episode>(`/api/operator/contents/${contentID}/episodes`, {
     method: "POST",
-    body: JSON.stringify({ ...input, resource_type: "VIDEO", storage_provider: "R2" }),
+    body: JSON.stringify({ ...input, resource_type: "VIDEO" }),
   });
 }
 

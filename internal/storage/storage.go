@@ -2,7 +2,6 @@ package storage
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/url"
 	"strings"
@@ -14,36 +13,10 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
 
-type ObjectStorage interface {
-	// PresignGet 为已通过权益校验的资源生成短期访问地址。
-	PresignGet(ctx context.Context, bucket, objectKey string, ttl time.Duration) (string, error)
-	// PresignPut 为运营人员生成短期上传地址；对象 key 由服务端生成。
-	PresignPut(ctx context.Context, bucket, objectKey, contentType string, ttl time.Duration) (string, error)
-	// HeadObject 在发布 Episode 前确认对象确实存在，并读取服务端保存的元数据。
-	HeadObject(ctx context.Context, bucket, objectKey string) (ObjectInfo, error)
-}
-
-var ErrUploadUnsupported = errors.New("object storage does not support uploads")
-
 // ObjectInfo 是对象存储返回的必要元数据，不包含对象内容。
 type ObjectInfo struct {
 	Size        int64
 	ContentType string
-}
-
-// MockStorage 用于本地开发和未配置 R2 时验证业务链路，不代表真实的视频播放地址。
-type MockStorage struct{}
-
-func (MockStorage) PresignGet(_ context.Context, bucket, objectKey string, _ time.Duration) (string, error) {
-	return "mock://" + url.PathEscape(strings.Trim(bucket+"/"+objectKey, "/")), nil
-}
-
-func (MockStorage) PresignPut(context.Context, string, string, string, time.Duration) (string, error) {
-	return "", ErrUploadUnsupported
-}
-
-func (MockStorage) HeadObject(context.Context, string, string) (ObjectInfo, error) {
-	return ObjectInfo{}, ErrUploadUnsupported
 }
 
 type R2Storage struct {
@@ -52,13 +25,17 @@ type R2Storage struct {
 	client    *s3.Client
 }
 
-// New 根据配置选择 Mock Storage 或 Cloudflare R2 实现。
-func New(provider, endpoint, accessKey, secretKey string) (ObjectStorage, error) {
-	if strings.ToLower(provider) != "r2" {
-		return MockStorage{}, nil
-	}
+// NewR2 创建 Cloudflare R2 客户端；v1 明确要求配置真实对象存储。
+func NewR2(endpoint, accessKey, secretKey string) (*R2Storage, error) {
+	endpoint = strings.TrimSpace(endpoint)
+	accessKey = strings.TrimSpace(accessKey)
+	secretKey = strings.TrimSpace(secretKey)
 	if endpoint == "" || accessKey == "" || secretKey == "" {
-		return nil, fmt.Errorf("r2 storage requires endpoint, access key and secret key")
+		return nil, fmt.Errorf("R2 requires endpoint, access key and secret key")
+	}
+	parsedEndpoint, err := url.ParseRequestURI(endpoint)
+	if err != nil || parsedEndpoint.Scheme != "https" || parsedEndpoint.Host == "" {
+		return nil, fmt.Errorf("R2 endpoint must be an HTTPS URL")
 	}
 	awsCfg, err := awsconfig.LoadDefaultConfig(context.Background(),
 		awsconfig.WithRegion("auto"),

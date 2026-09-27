@@ -11,6 +11,7 @@ import (
 )
 
 type memoryOrderRunner struct {
+	repository.Transaction
 	mu      sync.Mutex
 	orders  map[string]*model.Order
 	balance int64
@@ -18,7 +19,7 @@ type memoryOrderRunner struct {
 	events  int
 }
 
-func (r *memoryOrderRunner) WithinOrderTx(_ context.Context, fn func(repository.OrderTx) error) error {
+func (r *memoryOrderRunner) WithinTx(_ context.Context, fn func(repository.Transaction) error) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	return fn(r)

@@ -60,8 +60,8 @@ func (c *Client) Close() error {
 	return c.conn.Close()
 }
 
-// Check reports whether the AMQP connection and channel are still open.
-// RabbitMQ heartbeats update this state when a broker connection is lost.
+// Check 检查 AMQP 连接和信道是否仍处于打开状态。
+// RabbitMQ 心跳机制会在 Broker 连接断开时更新该状态。
 func (c *Client) Check(ctx context.Context) error {
 	if err := ctx.Err(); err != nil {
 		return err

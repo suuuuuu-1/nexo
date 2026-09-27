@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
 	"path/filepath"
@@ -12,7 +11,6 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/suuuuu/nexo/internal/model"
-	"github.com/suuuuu/nexo/internal/storage"
 )
 
 type contentRequest struct {
@@ -24,15 +22,14 @@ type contentRequest struct {
 }
 
 type episodeRequest struct {
-	EpisodeNo       int              `json:"episode_no" binding:"required"`
-	Title           string           `json:"title" binding:"required"`
-	Summary         string           `json:"summary"`
-	AccessType      model.AccessType `json:"access_type"`
-	PriceCents      int64            `json:"price_cents"`
-	ResourceType    string           `json:"resource_type"`
-	StorageProvider string           `json:"storage_provider"`
-	BucketName      *string          `json:"bucket_name"`
-	ObjectKey       *string          `json:"object_key"`
+	EpisodeNo    int              `json:"episode_no" binding:"required"`
+	Title        string           `json:"title" binding:"required"`
+	Summary      string           `json:"summary"`
+	AccessType   model.AccessType `json:"access_type"`
+	PriceCents   int64            `json:"price_cents"`
+	ResourceType string           `json:"resource_type"`
+	BucketName   *string          `json:"bucket_name"`
+	ObjectKey    *string          `json:"object_key"`
 }
 
 type episodeUploadRequest struct {
@@ -169,10 +166,6 @@ func (r *Router) presignEpisodeUpload(c *gin.Context) {
 	objectKey := fmt.Sprintf("nexo/contents/%s/episodes/%s.mp4", contentID, uuid.NewString())
 	url, err := r.storage.PresignPut(c.Request.Context(), r.config.R2Bucket, objectKey, req.ContentType, episodeUploadTTL)
 	if err != nil {
-		if errors.Is(err, storage.ErrUploadUnsupported) {
-			c.JSON(http.StatusServiceUnavailable, gin.H{"error": "video upload requires R2 storage configuration"})
-			return
-		}
 		r.writeBusinessError(c, err)
 		return
 	}
@@ -199,7 +192,7 @@ func (r *Router) createEpisode(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
 		return
 	}
-	item, err := r.content.CreateEpisode(c.Request.Context(), actorID, c.Param("id"), model.EpisodeInput{EpisodeNo: req.EpisodeNo, Title: req.Title, Summary: req.Summary, AccessType: req.AccessType, PriceCents: req.PriceCents, ResourceType: req.ResourceType, StorageProvider: req.StorageProvider, BucketName: req.BucketName, ObjectKey: req.ObjectKey})
+	item, err := r.content.CreateEpisode(c.Request.Context(), actorID, c.Param("id"), model.EpisodeInput{EpisodeNo: req.EpisodeNo, Title: req.Title, Summary: req.Summary, AccessType: req.AccessType, PriceCents: req.PriceCents, ResourceType: req.ResourceType, BucketName: req.BucketName, ObjectKey: req.ObjectKey})
 	if err != nil {
 		r.writeBusinessError(c, err)
 		return
@@ -215,7 +208,7 @@ func (r *Router) updateEpisode(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
 		return
 	}
-	item, err := r.content.UpdateEpisode(c.Request.Context(), c.Param("id"), actorID, model.EpisodeInput{EpisodeNo: req.EpisodeNo, Title: req.Title, Summary: req.Summary, AccessType: req.AccessType, PriceCents: req.PriceCents, ResourceType: req.ResourceType, StorageProvider: req.StorageProvider, BucketName: req.BucketName, ObjectKey: req.ObjectKey})
+	item, err := r.content.UpdateEpisode(c.Request.Context(), c.Param("id"), actorID, model.EpisodeInput{EpisodeNo: req.EpisodeNo, Title: req.Title, Summary: req.Summary, AccessType: req.AccessType, PriceCents: req.PriceCents, ResourceType: req.ResourceType, BucketName: req.BucketName, ObjectKey: req.ObjectKey})
 	if err != nil {
 		r.writeBusinessError(c, err)
 		return
@@ -225,29 +218,27 @@ func (r *Router) updateEpisode(c *gin.Context) {
 
 // publishEpisode 确认视频对象存在且元数据合规后，再将 Episode 发布到用户侧。
 func (r *Router) publishEpisode(c *gin.Context) {
-	if strings.EqualFold(r.config.StorageProvider, "r2") {
-		episode, err := r.content.GetEpisode(c.Request.Context(), c.Param("id"), false)
-		if err != nil {
-			r.writeBusinessError(c, err)
-			return
-		}
-		if episode.ObjectKey == nil || strings.TrimSpace(*episode.ObjectKey) == "" {
-			c.JSON(http.StatusConflict, gin.H{"error": "episode video has not been uploaded"})
-			return
-		}
-		bucket := r.config.R2Bucket
-		if episode.BucketName != nil && strings.TrimSpace(*episode.BucketName) != "" {
-			bucket = *episode.BucketName
-		}
-		info, err := r.storage.HeadObject(c.Request.Context(), bucket, *episode.ObjectKey)
-		if err != nil {
-			c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "episode object was not found in R2; upload it before publishing"})
-			return
-		}
-		if info.Size <= 0 || info.Size > maxEpisodeUploadBytes || !strings.EqualFold(strings.TrimSpace(strings.Split(info.ContentType, ";")[0]), "video/mp4") {
-			c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "episode object must be an MP4 video no larger than 1 GiB"})
-			return
-		}
+	episode, err := r.content.GetEpisode(c.Request.Context(), c.Param("id"), false)
+	if err != nil {
+		r.writeBusinessError(c, err)
+		return
+	}
+	if episode.ObjectKey == nil || strings.TrimSpace(*episode.ObjectKey) == "" {
+		c.JSON(http.StatusConflict, gin.H{"error": "episode video has not been uploaded"})
+		return
+	}
+	bucket := r.config.R2Bucket
+	if episode.BucketName != nil && strings.TrimSpace(*episode.BucketName) != "" {
+		bucket = *episode.BucketName
+	}
+	info, err := r.storage.HeadObject(c.Request.Context(), bucket, *episode.ObjectKey)
+	if err != nil {
+		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "episode object was not found in R2; upload it before publishing"})
+		return
+	}
+	if info.Size <= 0 || info.Size > maxEpisodeUploadBytes || !strings.EqualFold(strings.TrimSpace(strings.Split(info.ContentType, ";")[0]), "video/mp4") {
+		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "episode object must be an MP4 video no larger than 1 GiB"})
+		return
 	}
 	r.changeEpisodeStatus(c, model.StatusPublished)
 }
